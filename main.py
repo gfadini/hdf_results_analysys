@@ -40,7 +40,7 @@ def extract(archive, tag, index=0):
             tmp_array.append(i)
     return np.array(tmp_array)
 
-def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plotTitle = '', xlabel='x', ylabel='y', quiet = True):
+def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plotTitle = '', xlabel='x', ylabel='y', quiet = True, points = True):
     '''
     Generic scatter or line plot
     '''
@@ -49,7 +49,10 @@ def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plo
         plt.scatter(x, y, color = color, s=2**2)
         plt.ylim(bottom=min(y))
     elif y is None and x is not None :
-        plt.plot(x, linestyle='none', marker = 'o', markersize = 2, color=color)
+        if points:
+            plt.plot(x, linestyle='none', marker = 'o', markersize = 2, color=color)
+        else:
+            plt.plot(x, color=color)
     else:
         raise Exception('Data is needed for the plot!')
     plt.title(plotTitle)
@@ -109,36 +112,88 @@ def plot_codesign_results(archive, image_folder = None, extension = 'pdf'):
 def selectSolution(archive, key, index):
     return np.array(archive[key][index, :])
 
-def returnChampionIndex(archive):
-    return archive['cost']
+def getChampionIndex(archive):
+    return np.where(np.array(archive['cost']) == np.amin(np.array(archive['cost'])))[0][0]
+
+def plotPower(archive,  index, image_folder, extension, figTitle = 'power_plot', plotTitle = 'Power components', xlabel = 'timestep [ ]', ylabel = 'Power [W]', quiet = True):
+    simplePlot(archive['pf_cost'][index], None, None, None, figTitle, 'magenta', plotTitle, xlabel, ylabel, points=False)
+    simplePlot(archive['pt_cost'][index], None, image_folder, extension, figTitle, 'red', plotTitle, xlabel, ylabel, points=False)
+    plt.legend(['$P_f$', '$P_t$'])
+    if not quiet:
+        plt.show()
+
+def plotSolution(archive, index, image_folder, extension, figTitle = 'solution', plotTitle = 'Solution', xlabel = 'time [s]', ylabel = '', quiet = True):
+    '''
+    Plots the ddp solution, xs, us
+    '''
+    xs, us = archive['xs'][index], archive['us'][index]
+
+    if xs is None:
+        usPlotIdx = 111
+    elif us is None:
+        xsPlotIdx = 111
+    else:
+        xsPlotIdx = 211
+        usPlotIdx = 212
+    dt = 1e-2
+    N = len(us[:,0])
+    time = np.arange(start=0, stop=dt*N + dt, step=dt)
+
+    plt.figure(figTitle)
+
+    # Plotting the state trajectories
+    if xs is not None:
+        plt.title('Solution trajectory')
+        nx = len(xs[0])
+        plt.subplot(xsPlotIdx)
+        [plt.plot(time, xs[:,i], label="$x_{" + str(i) + '}$') for i in range(nx)]
+        plt.legend()
+    plt.grid(True)
+
+    # Plotting the control commands
+    if us is not None:
+        nu = len(us[0])
+        plt.subplot(usPlotIdx)
+        [plt.plot(time[:N], us[:,i], label="$u_{" + str(i) + '}$') for i in range(nu)]
+        plt.legend()
+        plt.xlabel(xlabel)
+    plt.grid(True)
+    if image_folder is not None:
+        if not os.path.exists(image_folder):
+            os.makedirs(image_folder)
+        plt.savefig(image_folder + figTitle + '.' + extension, format = extension)
+    if not quiet:
+        plt.show()
 
 def generationMeans(archive, tag, gen = 100):
     means=[]
-    N = len(archive['cost'])
+    N = len(archive[tag])
     for i in range(0,int(N/gen)):
-        means.append(np.mean(archive['cost'][i*int(gen):(i+1)*int(gen)]))
+        means.append(np.mean(archive[tag][i*int(gen):(i+1)*int(gen)]))
     return means
 
 if __name__ == "__main__":
+    # can specify multiple files as arguments
+    # ideally a batch with wildcards
     files = sys.argv[1:]
     for filePath in files:
         #filePath = str(sys.argv[1])
-        print('#'*20)
         prettyName = cleanName(filePath)
-        print(prettyName)
         results_archive = readFromPath(filePath)
+        solved = np.array(results_archive['solved'])
+        minValue = np.array(results_archive['champion_f'])
+        minVect = np.array(results_archive['champion_x'])
+        print('#'*20)
+        print(prettyName)
+        print('Solved {:.2f}% of the problems [{:0}]'.format(sum(solved==1)/len(solved)*1e2, len(solved)))
+        print('Convergence evolution \n {:}'.format(generationMeans(results_archive, 'cost', 6e3)))
+        print('Minimum {:} found at {:}'.format(minValue, minVect))
 
         plt.ioff()
         plot_codesign_results(results_archive, 'plots/' + prettyName + '/', extension = 'png')
+        bestIndex = getChampionIndex(results_archive)
+        plotSolution(results_archive, bestIndex, 'plots/' + prettyName + '/', extension = 'png')
+        plotPower(results_archive, bestIndex, 'plots/' + prettyName + '/', extension = 'png')
         plt.close('all')
-        solved = np.array(results_archive['solved'])
-        print('Solved {:.2f}% of the problems [{:0}]'.format(sum(solved==1)/len(solved)*1e2, len(solved)))
-        minVect = np.array(results_archive['champion_x'])
-        minValue = np.array(results_archive['champion_f'])
-        print('Minimum {:} found at {:}'.format(minValue, minVect))
-        # champion.solve()
-        # plot_power(champion)
-        # plot_solution(champion)
+
         # plot_frame_trajectory(champion, 'tip')
-
-
