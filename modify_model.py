@@ -7,7 +7,9 @@ def update_model(model, motor_mass, n_gear, lambda_l):
     modify_actuation(model, np.array(motor_mass), np.array(n_gear))
     add_motor_mass(model, np.array(motor_mass))
 
-def upscale_structure(model, lambda_l):
+def upscale_structure(model, lambda_l, floating = False):
+    if floating:
+        lambda_l = np.concatenate([np.ones(1), lambda_l])
     # MODIFY THE INERTIAL PARAMETERS, just upscaling all limbs
     for index in range(len(model.inertias)-1):
         # scale all the masses
