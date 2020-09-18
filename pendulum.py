@@ -18,10 +18,9 @@ def createPendulum(nbJoint, length=1.0, mass=1.0):
         jointName,bodyName = [name+"_joint",name+"_body"]
         jointId = rmodel.addJoint(jointId,pinocchio.JointModelRY(),jointPlacement,jointName)
         rmodel.appendBodyToJoint(jointId,inertia,pinocchio.SE3.Identity())
-        jointPlacement     = pinocchio.SE3(eye(3),np.matrix([0.0,0.0,length]).T)
-        if i >= 1:
-            rmodel.addFrame(pinocchio.Frame('joint_' + str(i), jointId, i-1, pinocchio.SE3.Identity(), pinocchio.FrameType.JOINT))
-    rmodel.addFrame( pinocchio.Frame('tip',jointId,0,jointPlacement,pinocchio.FrameType.OP_FRAME) )
+        jointPlacement = pinocchio.SE3(eye(3),np.array([0.0,0.0,length]))
+        rmodel.addJointFrame(jointId)
+    rmodel.addFrame(pinocchio.Frame('tip',jointId,0,jointPlacement,pinocchio.FrameType.OP_FRAME) )
     rmodel.upperPositionLimit = np.zeros(nbJoint)+2*np.pi
     rmodel.lowerPositionLimit = np.zeros(nbJoint)-2*np.pi
     rmodel.velocityLimit      = np.zeros(nbJoint)+5.0

@@ -18,11 +18,12 @@ def upscale_structure(model, lambda_l):
         model.inertias[index+1].inertia = lambda_l[index]**5 * model.inertias[index+1].inertia
         # MODIFY all LINK DIMENSIONS, linear placement of frames with respect to link before
     
-    for index in range(1, len(model.frames)):
-        model.frames[index].placement.translation = lambda_l[index-1] * model.frames[index].placement.translation
-    
-    for index in range(1, len(model.jointPlacements)):
-        model.jointPlacements[index].translation = lambda_l[index-1] * model.jointPlacements[index].translation
+    model.frames[-1].placement.translation = lambda_l[-1] * model.frames[-1].placement.translation
+
+    for index in range(2, 2 + len(lambda_l) - 1):
+        model.jointPlacements[index].translation = lambda_l[index-2] * model.jointPlacements[index].translation
+
+    return model
 
 def modify_actuation(model, motor_mass, n_gear):
     # assign the EFFORT LIMIT and the armature according to the model
