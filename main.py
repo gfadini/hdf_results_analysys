@@ -57,6 +57,8 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
     plt.figure(fig_title)
     initial_positions = np.array([])
     final_positions = np.array([])
+    if frame_names == None:
+        frame_names = [frame.name for frame in robot_model.frames]
     if trid:
         ax = plt.axes(projection = '3d')
         for frame_name in frame_names:
@@ -109,10 +111,8 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
 
 def animateSolution(archive, index, robot_model, frameNames = None, target = None, dt = 1e3, saveAnimation=False):
 
-    m_m = archive['motor_mass'][index]
-    n_g = archive['n_gear'][index]
     l_l = archive['lambda_l'][index]
-    modify_model.update_model(robot_model, m_m, n_g, l_l)
+    modify_model.upscale_structure(robot_model, l_l)
 
     xs = archive['xs'][index]
     us = archive['us'][index]
