@@ -90,7 +90,7 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
         plt.gca().set_aspect('equal')
         box = plt.gca().get_position()
         plt.gca().set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
-        plt.gca().legend(frame_names[1:] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
+        plt.gca().legend(['${}$'.format(frame) for frame in frame_names[1:]] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
         plt.gca().plot(initial_positions[0::2], initial_positions[1::2], color = 'grey', alpha = 0.7)
         plt.gca().plot(final_positions[0::2], final_positions[1::2], color = 'grey', alpha = 0.7)
 
@@ -186,6 +186,8 @@ def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plo
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if image_folder is not None:
+        if not os.path.exists(image_folder):
+            os.makedirs(image_folder)
         plt.savefig(image_folder + figTitle + '.' + extension, format = extension)
     if not quiet:
         plt.show()
@@ -202,25 +204,63 @@ def cmapPlot(x, y, z, image_folder, extension, figTitle='scatter', cmap='BuPu_r'
     plt.ylabel(ylabel)
     plt.ylim(bottom=np.min(y))
     if image_folder is not None:
+        if not os.path.exists(image_folder):
+            os.makedirs(image_folder)
         plt.savefig(image_folder + figTitle + '.' + extension, format = extension)
     if not quiet:
         plt.show()
+
+def simple3dPlot(x, y, z, image_folder, extension, figTitle='3dplot', cmap='BuPu_r', plotTitle = '', xlabel='x', ylabel='y', zlabel='z', quiet = True, animate = False):
+    if image_folder is not None:
+        if not os.path.exists(image_folder):
+            os.makedirs(image_folder)
+    plt.figure(figTitle)
+    ax = plt.axes(projection = '3d')
+    ax.scatter(x, y, z, c = z, cmap = cmap,s=5**2)
+    ax.set_zlim3d(np.min(z),np.max(z))
+    plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(np.min(z), np.max(z), clip=True), cmap='BuPu_r'), ax=ax)
+    plt.title(plotTitle)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_zlabel(zlabel, linespacing=3.4)
+
+    if image_folder is not None:
+        plt.savefig(image_folder + figTitle + '.' + extension, format = extension)
+    if animate:
+        animate3dPlot(ax, image_folder, figTitle)
+    if not quiet:
+        plt.show()
+
+def animate3dPlot(ax, image_folder, figTitle):
+
+   def rotate(angle):
+       ax.view_init(30, angle)
+       plt.draw()
+
+   N = 100
+   from matplotlib import animation
+   ani = animation.FuncAnimation(plt.figure(figTitle), rotate, N, interval=360/N, blit=False)
+   if image_folder is not None:
+        print('')
+        ani.save(image_folder + figTitle + '.gif', writer='imagemagick', progress_callback = lambda i, n: print(f'\033[ASaving frame {i} of {n}'))
+        print('Saving also in HTML')
+        animation_js = ani.to_jshtml()
+        js_file=open(image_folder + figTitle + '.html', "w")
+        js_file.write(animation_js)
+        js_file.close()
 
 def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, extension = 'pdf', quiet = False):
 
     '''
     Creates the saving directory if needed
     '''
-    if image_folder is not None:
-        if not os.path.exists(image_folder):
-            os.makedirs(image_folder)
 
     if selectedIndexes is None:
         # take all values
         selectedIndexes = list(True for _ in range(archive['motor_mass'].shape[0]))
 
-    cost = np.log(extract(archive, 'cost')[selectedIndexes])
-    error =  np.log(extract(archive, 'error')[selectedIndexes])
+    cost = np.log(extract(archive, 'cost')[selectedIndexes] + 1e-3)
+    error =  np.log(extract(archive, 'error')[selectedIndexes] + 1e-3)
 
     for index in range(archive['motor_mass'].shape[1]):
         motorMass = extract(archive, 'motor_mass', index)[selectedIndexes]
@@ -235,13 +275,18 @@ def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, 
 
     simplePlot(cost, None, image_folder, extension, 'cost_evo', 'blue', 'Cost evolution during the optimization', 'Number of Iteration', '$\log(cost)$',)
     simplePlot(error, None, image_folder, extension, 'error_evo', 'red', 'Error evolution during the optimization', 'Number of Iteration', '$\log(error)$')
-    
+
+    try:
+        # is not monodimensional
+        motorMass.shape[1]
+    except:
+        simple3dPlot(motorMass, gearRatio, cost, 'plots/' + prettyName + '/', 'png', figTitle='cost_landscape', plotTitle='Cost landscape', xlabel='$m_m$', ylabel='$n$', zlabel='cost', quiet=False, animate=False)
+        cmapPlot(scaling, motorMass, cost, image_folder, extension, 'motor_lambda', 'BuPu_r', 'Motor mass and scaling', '$\\lambda_l$ [ ]', '$m_m$ [Kg]')
+        cmapPlot(motorMass, gearRatio, cost, image_folder, extension, 'motor_transmission', 'BuPu_r', 'Motor mass and gear ratio', '$m_m$ [Kg]', '$n$ [ ]')
+        cmapPlot(gearRatio, scaling, cost, image_folder, extension, 'transmission_lambda', 'BuPu_r', 'Gear ratio and scaling', '$n$ [ ]', '$\\lambda_l$ [ ]')
+
     if not quiet:
         plt.show()
-
-    # cmapPlot(scaling, motorMass, cost, image_folder, extension, 'motor_lambda', 'BuPu_r', 'Motor mass and scaling', '$\\lambda_l$ [ ]', '$m_m$ [Kg]')
-    # cmapPlot(motorMass, gearRatio, cost, image_folder, extension, 'motor_transmission', 'BuPu_r', 'Motor mass and gear ratio', '$m_m$ [Kg]', '$n$ [ ]')
-    # cmapPlot(gearRatio, scaling, cost, image_folder, extension, 'transmission_lambda', 'BuPu_r', 'Gear ratio and scaling', '$n$ [ ]', '$\\lambda_l$ [ ]')
 
 def selectSolution(archive, key, index):
     return np.array(archive[key][index, :])
@@ -260,6 +305,34 @@ def plotPower(archive,  index, image_folder, extension, figTitle = 'power_plot',
     plt.legend(['$P_m$', '$P_f$', '$P_t$', '$P_{el}$'])
     if not quiet:
         plt.show()
+
+def plotTrajectories(archive, frames = ['tip'], selectedIndexes = None, image_folder = None, extension = 'pdf', quiet = False):
+
+    plt.figure('trajectories_superposition')
+    ax = plt.axes()
+    ax.set_aspect('equal')
+    if selectedIndexes is None:
+        selectedIndexes = [i for i in range(len(results_archive['motor_mass'][0]))]
+    selected_cost = np.array(results_archive['cost'])[selectedIndexes]
+    c_min = np.log(min(selected_cost))
+    c_max = np.log(max(selected_cost))
+    alpha = (c_max - np.log(selected_cost))/(c_max - c_min)
+    colors = plt.cm.BuPu_r(np.linspace(0,1,len(selected_cost)))
+    for index in selectedIndexes:
+                m_m = results_archive['motor_mass'][index]
+                n_g = results_archive['n_gear'][index]
+                l_l = results_archive['lambda_l'][index]
+                dummy_model = robot_model.copy()
+                modify_model.update_model(dummy_model, m_m, n_g, l_l)
+                initial_positions=np.array([])
+                final_positions=np.array([])
+                for frame_name in ['tip']:
+                        x, _, z = frame_position(results_archive, index, dummy_model, frame_name)
+                        ax.plot(x[1:], z[1:], color=colors[index], alpha = alpha[index]**6)
+                        initial_positions = np.append(initial_positions, np.array([x[1], z[1]]))
+                        final_positions = np.append(final_positions, np.array([x[-1], z[-1]]))
+    plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(c_min, c_max, clip=False), cmap='BuPu_r'))
+    plt.show()
 
 def energy_stats(archive, index, robot_model, dt = 1e-3):
     '''
@@ -349,71 +422,50 @@ if __name__ == "__main__":
     # ideally a batch with wildcards
     files = sys.argv[1:]
     for filePath in files:
+
         prettyName = cleanName(filePath, ['results/', '.npz', '.hdf5'])
         results_archive = readFromPath(filePath)
-        solved = np.array(results_archive['solved'])
-        minValue = np.array(results_archive['champion_f'])
-        minVect = np.array(results_archive['champion_x'])
-        print('#'*20)
-        print(prettyName)
-        print('Solved {:.2f}% of the problems [{:0}]'.format(sum(solved==1)/len(solved)*1e2, len(solved)))
-        print('Convergence evolution \n {:}'.format(generationMeans(results_archive, 'cost', 6e3)))
-        print('Minimum {:} found at {:}'.format(minValue, minVect))
-
-        plt.ioff()
-        # plot_codesign_results(results_archive, 'plots/' + prettyName + '/', extension = 'png')
-        bestIndex = getChampionIndex(results_archive)
-        # plotSolution(results_archive, bestIndex, 'plots/' + prettyName + '/', extension = 'png', quiet = False)
-        # plotPower(results_archive, bestIndex, 'plots/' + prettyName + '/', extension = 'png', quiet = False)
-        plt.close('all')
-
-        # plot_frame_trajectory(champion, 'tip')
-
-        # POSTPROCESSING FILTER the search space, discard the solution off treshold
-        try:
-            acceptable_tolerance = np.array(results_archive['th_stop']) < results_archive['th_stop_tol']
-        except:
-            acceptable_tolerance = np.array(results_archive['th_stop']) < 1e-6
-        acceptable_cost = np.log(np.array(results_archive['cost'])) < 0
-        acceptable_error = np.array(results_archive['error']) < 1e-6
-        acceptable_solutions = np.logical_and(acceptable_error, acceptable_tolerance, acceptable_cost)
-        print('The acceptable solutions are {:2.2f}%'.format(100 * sum(acceptable_solutions)/results_archive['cost'].shape[0]))
-        cost_acceptable = results_archive['cost'][acceptable_solutions]
-        error_acceptable = results_archive['error'][acceptable_solutions]
-        best_acceptable = np.where(np.array(results_archive['error']) == np.amin(error_acceptable))[0][0]
-        plotSolution(results_archive, best_acceptable, None, None, quiet = False)
-        plotPower(results_archive, best_acceptable, None, None, quiet = False)
-        # plot_codesign_results(results_archive, acceptable_solutions, None, None, quiet = False)
 
         robot_model = pendulum.createPendulum(nbJoint=results_archive['motor_mass'].shape[1])
+
+        are_solved = np.array(results_archive['solved'])
+        try:
+            acceptable_tolerance = np.array(results_archive['th_stop']) < 1e-8 #results_archive['th_stop_tol']
+        except:
+            acceptable_tolerance = np.array(results_archive['th_stop']) < 1e-9
+        acceptable_cost = np.array(results_archive['cost']) < np.mean(np.array(results_archive['cost']))
+        acceptable_error = np.array(results_archive['error']) < 1e-3
+        acceptable_solutions = are_solved # acceptable_error * acceptable_tolerance * acceptable_cost * are_solved
+        print('The acceptable solutions are {:2.2f}%'.format(100 * sum(acceptable_solutions)/results_archive['cost'].shape[0]))
+
+        if sum(acceptable_solutions) == 0:
+            best_acceptable = getChampionIndex(results_archive)
+        else:
+            cost_acceptable = results_archive['cost'][acceptable_solutions]
+            error_acceptable = results_archive['error'][acceptable_solutions]
+            best_acceptable = np.where(np.array(results_archive['cost']) == np.amin(cost_acceptable))[0][0]
+
+        print('#'*20)
+        print(prettyName)
+        print('Solved {:.2f}% of the problems [{:0}]'.format(sum(are_solved==1)/len(are_solved)*1e2, len(are_solved)))
+        print('Convergence evolution \n {:}'.format(generationMeans(results_archive, 'cost', 6e3)))
+        print('Minimum {:} found at \n m_m {:} \n n {:}\n l_l {:}'.format(
+                                                results_archive['cost'][best_acceptable],
+                                                results_archive['motor_mass'][best_acceptable],
+                                                results_archive['n_gear'][best_acceptable],
+                                                results_archive['lambda_l'][best_acceptable]))
+
+        plot_codesign_results(results_archive, acceptable_solutions, None, None, quiet = False)
+        plotPower(results_archive, best_acceptable, None, None, quiet = False)
+        plotSolution(results_archive, best_acceptable, None, None, quiet = False)
         frames=[frame.name for frame in robot_model.frames]
         animateSolution(results_archive, best_acceptable, robot_model.copy(), frameNames=frames, target=np.array([0,0,1]), dt = 1e-2)
-        plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), frame_names = frames, target=np.array([0,0,1]), trid = False, quiet = False)
+        plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), frame_names=frames, target=np.array([0,0,1]), trid = False, quiet = False)
         energy_stats(results_archive, best_acceptable, robot_model.copy(), dt=1e-2)
-
-        plt.figure('weird_superposition')
-
-        selected = (acceptable_solutions*range(len(acceptable_solutions)))[-1000:]
-        selected_cost = np.array(results_archive['cost'])[selected]
-        c_min = np.log(min(selected_cost))
-        c_max = np.log(max(selected_cost))
-        alpha = (c_max - np.log(selected_cost))/(c_max - c_min)
-        for i, index in enumerate(selected):
-                    m_m = results_archive['motor_mass'][index]
-                    n_g = results_archive['n_gear'][index]
-                    l_l = results_archive['lambda_l'][index]
-                    dummy_model = robot_model.copy()
-                    modify_model.update_model(dummy_model, m_m, n_g, l_l)
-                    initial_positions=np.array([])
-                    final_positions=np.array([])
-                    for frame_name in ['tip']:
-                            x, y, z = frame_position(results_archive, index, dummy_model, frame_name)
-                            plt.gca().plot(x[1:], z[1:], color='blue', alpha = alpha[i]**6)
-                            initial_positions = np.append(initial_positions, np.array([x[1], z[1]]))
-                            final_positions = np.append(final_positions, np.array([x[-1], z[-1]]))
-        plt.gca().set_aspect('equal')
-        plt.show()
 
         plt.figure('histogram')
         _ = plt.hist(np.log(np.array(results_archive['cost'])[acceptable_solutions]), bins='auto')
         plt.show()
+
+        plotTrajectories(results_archive, frames=['tip'], selectedIndexes=(acceptable_solutions*range(len(acceptable_solutions))), quiet=False)
+        plt.close('all')
