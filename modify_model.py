@@ -19,7 +19,7 @@ def upscale_structure(model, lambda_l, floating = False):
         # scale all inertia tensors
         model.inertias[index+1].inertia = lambda_l[index]**5 * model.inertias[index+1].inertia
         # MODIFY all LINK DIMENSIONS, linear placement of frames with respect to link before
-    
+
     model.frames[-1].placement.translation = lambda_l[-1] * model.frames[-1].placement.translation
 
     for index in range(2, 2 + len(lambda_l) - 1):
@@ -40,6 +40,7 @@ def modify_actuation(model, motor_mass, n_gear):
     # saving the dissipative parameters
     model.K_m = K_m
     model.T_mu = T_mu
+    model.b = 1.341e-5 * np.ones(len(T_mu))
     # modify POSITION LIMITS
     # upper and lower LIMITS (to defaults)
     model.lowerPositionLimit = np.array(model.lowerPositionLimit)
