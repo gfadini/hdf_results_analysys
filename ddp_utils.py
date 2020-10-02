@@ -8,6 +8,50 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
+
+def animateSolution(ddp, frameNames = None, target = None,  dt = 1e-3, saveAnimation=False):
+
+    anim = plt.figure()
+
+    robot_data = ddp.robot_model.createData()
+    if frameNames is None:
+        frameNames = [frame.name for frame in ddp.robot_model.frames]
+        frameNames.remove('universe')
+    imgs = []
+
+    scalingFactor = 2
+
+    try:
+        dt = ddp.problem.runningModels[0].dt
+    except:
+        print('WARNING dt was not found in ddp, using default value (dt=1e-3)')
+
+    for i in np.concatenate((np.array(ddp.xs)[0:-1:scalingFactor], np.array([ddp.xs[-1]]*10))):
+        X = []
+        Z = []
+        pinocchio.updateFramePlacements(ddp.robot_model, robot_data)
+        pinocchio.forwardKinematics(ddp.robot_model, robot_data, i[:ddp.robot_model.nq], i[ddp.robot_model.nq:])
+        for frame_name in frameNames:
+            frame_id = ddp.robot_model.getFrameId(frame_name)
+            X.append(robot_data.oMf[frame_id].translation[0])
+            Z.append(robot_data.oMf[frame_id].translation[2])
+        imgs.append(plt.plot(X,Z, color='grey', marker='o', linewidth=2, markerfacecolor='black'))
+
+    import matplotlib.animation as animation
+    im_ani = animation.ArtistAnimation(anim, imgs, interval=ddp.problem.runningModels[0].dt*1e3, repeat_delay=1000,
+                                   blit=True)
+    plt.grid(True)
+    plt.gca().set_aspect('equal')
+    if target is not None:
+        plt.scatter(target[0], target[2], marker = 'x', color = 'red')
+    plt.title('Task animation')
+
+    if saveAnimation:
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=int(1/ddp.problem.runningModels[0].dt/scalingFactor), metadata=dict(artist='G. Fadini'), bitrate=-1)
+        im_ani.save('task_animation.mp4', writer=writer)
+    plt.show()
+
 def actuated_joints_id(model, actuated_rf_labels):
     '''
     Returns the id of a specific joint
@@ -32,198 +76,6 @@ def extract(npzfile, tag, index=0):
         except:
             tmp_array.append(i)
     return np.array(tmp_array)
-
-def plot_codesign_results(npzfile, image_folder = None, extension = 'pdf'):
-
-    fig_title = 'cost_mass'
-    plt.figure(fig_title)
-    x, y = extract(npzfile, 'motor_mass'), np.log(extract(npzfile, 'cost'))
-    plt.scatter(x, y, color = 'blue', s=5**2)
-    plt.title('Cost and motor mass')
-    plt.xlabel('$m_m$')
-    plt.ylabel('Natural log cost value')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'cost_transmission'
-    plt.figure('cost_transmission')
-    x, y = extract(npzfile, 'n_gear'), np.log(extract(npzfile, 'cost'))
-    plt.scatter(x, y, color = 'red', s=5**2)
-    plt.title('Cost and transmission')
-    plt.xlabel('$n$')
-    plt.ylabel('Natural log cost value')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'cost_scale'
-    plt.figure('Cost_scale')
-    x, y = extract(npzfile, 'lambda_l'), np.log(extract(npzfile, 'cost'))
-    plt.scatter(x, y, color = 'orange', s=5**2)
-    plt.title('Cost and scaling')
-    plt.xlabel('$\\lambda_l$')
-    plt.ylabel('Natural log cost value')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        if not os.path.exists(image_folder):
-            os.makedirs(image_folder)
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'cost_evo'
-    plt.figure('Cost_evo')
-    y = np.log(extract(npzfile, 'cost'))
-    plt.plot(y, marker='o', linestyle='none', markersize = 2, color = 'blue')
-    plt.title('Cost evolution during the optimization')
-    plt.xlabel('Number of Iteration')
-    plt.ylabel('Natural log cost value')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'error_evo'
-    plt.figure('Error evo')
-    y = np.log(extract(npzfile, 'error'))
-    plt.plot(y, marker='o', linestyle='none', markersize = 2, color = 'red')
-    plt.title('Error evolution during the optimization')
-    plt.xlabel('Number of Iteration')
-    plt.ylabel('Natural log error to reference')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'motor_lambda'
-    plt.figure(fig_title)
-    x, y, z = extract(npzfile, 'lambda_l'), extract(npzfile, 'motor_mass'), np.log(extract(npzfile, 'cost'))
-    # condition = z<=0
-    # z = np.extract(condition, z)
-    # x = np.extract(condition, x)
-    # y = np.extract(condition, y)
-    scatter = plt.scatter(x, y,  c = z, cmap = 'BuPu_r', s=5**2)
-    plt.colorbar(scatter)
-    plt.title('Motor mass and scaling')
-    plt.xlabel('$\\lambda_l$')
-    plt.ylabel('$m_m$')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=np.min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'motor_transmission'
-    plt.figure(fig_title)
-    x, y, z = extract(npzfile, 'n_gear'), extract(npzfile, 'motor_mass'), np.log(extract(npzfile, 'cost'))
-    # condition = z<=0
-    # z = np.extract(condition, z)
-    # x = np.extract(condition, x)
-    # y = np.extract(condition, y)
-    scatter = plt.scatter(x, y,  c = z, cmap = 'BuPu_r', s=5**2)
-    plt.colorbar(scatter)
-    plt.title('Motor mass and transmission')
-    plt.xlabel('$n$')
-    plt.ylabel('$m_m$')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=np.min(y))
-    #plt.colorbar()
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = 'transmission_lambda'
-    plt.figure(fig_title)
-    x, y, z = extract(npzfile, 'lambda_l'), extract(npzfile, 'n_gear'), np.log(extract(npzfile, 'cost'))
-    # condition = z<=0
-    # z = np.extract(condition, z)
-    # x = np.extract(condition, x)
-    # y = np.extract(condition, y)
-    scatter = plt.scatter(x, y,  c = z, cmap = 'BuPu_r', s=5**2)
-    plt.colorbar(scatter)
-    plt.title('Motor mass and scaling')
-    plt.xlabel('$\\lambda_l$')
-    plt.ylabel('$n$')
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-    fig_title = '3d_plot1'
-    plt.figure(fig_title)
-    x, y, z = extract(npzfile, 'lambda_l'), extract(npzfile, 'n_gear'), np.log(extract(npzfile, 'cost'))
-    # condition = z<=0
-    # z = np.extract(condition, z)
-    # x = np.extract(condition, x)
-    # y = np.extract(condition, y)
-    ax = plt.axes(projection = '3d')
-    ax.scatter(x, y, z, c = z, cmap = 'BuPu_r', s=5**2)
-    ax.set_zlim3d(np.min(z),np.max(z))
-    plt.colorbar(
-                    matplotlib.cm.ScalarMappable(
-                        norm=matplotlib.colors.Normalize(
-                                        np.min(z), np.max(z), clip=True), cmap='BuPu_r'),
-                        ax=ax
-                )
-    plt.title(fig_title)
-    ax.set_xlabel('$\\lambda_l$')
-    ax.set_ylabel('$n$')
-    ax.set_zlabel('cost', linespacing=3.4)
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    def rotate(angle):
-        ax.view_init(30, angle)
-        plt.draw()
-    N = 100
-    from matplotlib import animation
-    ani = animation.FuncAnimation(plt.figure(fig_title), rotate, N, interval=360/N, blit=False)
-    if image_folder is not None:
-        ani.save(image_folder + fig_title + '.gif', writer='imagemagick', progress_callback = lambda i, n: print('Saving frame {i} of {n}'))
-        animation_js = ani.to_jshtml()
-        js_file=open(image_folder + fig_title + '.html', "w")
-        js_file.write(animation_js)
-        js_file.close()
-    plt.show()
-
-    fig_title = '3d_plot2'
-    plt.figure(fig_title)
-    x, y, z = extract(npzfile, 'motor_mass'), extract(npzfile, 'n_gear'), np.log(extract(npzfile, 'cost'))
-    # condition = z<=0
-    # z = np.extract(condition, z)
-    # x = np.extract(condition, x)
-    # y = np.extract(condition, y)
-    ax = plt.axes(projection = '3d')
-    ax.scatter(x, y, z, c = z, cmap = 'BuPu_r', s=5**2)
-    ax.set_zlim3d(np.min(z),np.max(z))
-    plt.colorbar(
-                    matplotlib.cm.ScalarMappable(
-                        norm=matplotlib.colors.Normalize(
-                                        np.min(z), np.max(z), clip=True), cmap='BuPu_r'),
-                        ax=ax
-                )
-    plt.title(fig_title)
-    ax.set_xlabel('$m_m$', linespacing=3.4)
-    ax.set_ylabel('$n$', linespacing=3.4)
-    ax.set_zlabel('cost', linespacing=3.4)
-    # if sum(element > 0 for element in y): plt.ylim(top=0)
-    plt.ylim(bottom=min(y))
-    if image_folder is not None:
-        ani.save(image_folder + fig_title + '.gif', writer='imagemagick', progress_callback = lambda i, n: print(f'Saving frame {i} of {n}'))
-        animation_js = ani.to_jshtml()
-        js_file=open(image_folder + fig_title + '.html', "w")
-        js_file.write(animation_js)
-        js_file.close()
-    plt.show()
 
 def append_cost_to_vector(data, collector, tag):
     try:
@@ -258,7 +110,7 @@ def cost_stats(ddp):
 
     return np.array(u_cost), np.array(pf_cost), np.array(pm_cost), np.array(pt_cost)
 
-def energy_stats(ddp, pm, pt_cost, pf_cost):
+def energy_stats(ddp, pm, pt, pf):
     '''
     Computes the energy required by the motion from two positions with zero initial and final velocities TODO add kinetic energy
     Compares the result with crocoddyl mechanical power consumptions and dissipation
@@ -268,15 +120,16 @@ def energy_stats(ddp, pm, pt_cost, pf_cost):
     qf = ddp.xs[-1][:ddp.robot_model.nq]
     v0 = ddp.xs[0][ddp.robot_model.nq:]
     vf = ddp.xs[-1][ddp.robot_model.nq:]
+    dt = ddp.problem.runningModels[0].dt
     idealPotential = pinocchio.computePotentialEnergy(ddp.robot_model, pin_data, qf) - pinocchio.computePotentialEnergy(ddp.robot_model, pin_data, q0)
     idealKinetic = pinocchio.computeKineticEnergy(ddp.robot_model, pin_data, qf, vf) - pinocchio.computeKineticEnergy(ddp.robot_model, pin_data, q0, v0)
     ideal = idealPotential + idealKinetic
     ideal = pinocchio.computePotentialEnergy(ddp.robot_model, pin_data, qf) - pinocchio.computePotentialEnergy(ddp.robot_model, pin_data, q0)
     mechanical = np.sum(pm)*ddp.problem.runningModels[0].dt
-    print('Mechanical energy: {:0} J, ideal: {:1}, error: {:2.2} %'.format(mechanical, ideal, (mechanical-ideal)/ideal * 1e2))
-    print('Thermal dissipation: {:0} J'.format(np.sum(pt_cost)*ddp.problem.runningModels[0].dt))
-    print('Friction dissipation: {:0} J'.format(np.sum(pf_cost)*ddp.problem.runningModels[0].dt))
-    print('Total Energy needed: {:0} J'.format(np.sum(pt_cost)*ddp.problem.runningModels[0].dt + np.sum(pf_cost)*ddp.problem.runningModels[0].dt + mechanical))
+    print('Mechanical energy: {:0.3f} J, ideal: {:1.3f} J, error: {:2.2} %'.format(mechanical, ideal, (mechanical-ideal)/ideal * 1e2))
+    print('Thermal dissipation: {:0.3f} J'.format(np.sum(pt)*dt))
+    print('Friction dissipation: {:0.3f} J'.format(np.sum(pf)*dt))
+    print('Total Energy needed: {:0.3f} J'.format(np.sum(pt)*dt + np.sum(pf)*dt + mechanical))
 
 def plot_power(ddp, image_folder = None, extension = 'pdf'):
     '''
@@ -308,20 +161,35 @@ def plot_power(ddp, image_folder = None, extension = 'pdf'):
     plt.grid(True)
     plt.show()
 
-def visualize_movement(ddp, n_times = 3):
+def frame_position(ddp, frame_name):
     '''
-    Visualizing the solution in gepetto-viewer TODO see if works with the GV fix
+    Returns the position of a frame for a given configuration
     '''
-    for _ in range(n_times):
-        ddp.display.displayFromSolver(ddp)
-        time.sleep(2)
+    robot_data = ddp.robot_model.createData()
+    frame_id = ddp.robot_model.getFrameId(frame_name)
+    x = []
+    y = []
+    z = []
+
+    for i in ddp.xs:
+        pinocchio.updateFramePlacements(ddp.robot_model, robot_data)
+        pinocchio.forwardKinematics(ddp.robot_model, robot_data, i[:ddp.robot_model.nq], i[ddp.robot_model.nq:])
+        # changed for pinocchio array
+        x.append(robot_data.oMf[frame_id].translation[0])
+        y.append(robot_data.oMf[frame_id].translation[1])
+        z.append(robot_data.oMf[frame_id].translation[2])
+    return x, y, z
+
 
 def plotOCSolution(ddp, image_folder = None, extension = 'pdf', fig_title='solution'):
     '''
     Plots the ddp solution, xs, us
     '''
-    log = ddp.getCallbacks()[0]
-    xs, us = log.xs, log.us
+    try:
+        log = ddp.getCallbacks()[0]
+        xs, us = log.xs, log.us
+    except:
+        xs, us = ddp.xs, ddp.us
 
     # Getting the state and control trajectories
     if xs is not None:
@@ -409,135 +277,62 @@ def plotConvergence(ddp, image_folder = None, extension = 'pdf', fig_title="conv
         plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
     plt.show()
 
-def plotPhaseSpace(ddp, image_folder = None, extension = 'pdf', fig_title='phase_plot'):
-    '''
-    Phase space plot for a 1DOF pendulum case
-    '''
-    log = ddp.getCallbacks()[0]
-    xs = log.xs
-    nq = ddp.problem.runningModels[0].state.nq
-    nv = ddp.problem.runningModels[0].state.nv
-    #nx = ddp.models()[0].state.nx
 
-    if nq != nv:
-        print('Cannot find a proper state space representation')
+def plot_frame_trajectory(ddp, frame_names, image_folder = None, extension = 'pdf', trid = True, target = None):
+    '''
+    Plots a specific or multiple frame trajectory in time, 2D or 3D
+    '''
+    fig_title = 'foot_reference'
+    plt.figure('Foot_reference_frame_traj')
+    initial_positions = np.array([])
+    final_positions = np.array([])
+    if trid:
+        ax = plt.axes(projection = '3d')
+        for frame_name in frame_names:
+            x, y, z = frame_position(ddp, frame_name)
+            ax.plot3D(x[1:], y[1:], z[1:])
+            ax.scatter(x[1], y[1], z[1], color = 'black')
+            ax.scatter(x[-1], y[-1], z[-1], marker = '*', color = 'green')
+        if target is not None:
+            ax.scatter(*target, marker = 'X', color = 'red')
+        # Make axes limits
+        xyzlim = np.array([ax.get_xlim3d(), ax.get_ylim3d(), ax.get_zlim3d()]).T
+        XYZlim = [min(xyzlim[0]), max(xyzlim[1])]
+        ax.set_xlim3d(XYZlim)
+        ax.set_ylim3d(XYZlim)
+        ax.set_zlim3d(XYZlim)
+        plt.legend(frame_names)
+        try:
+            ax.set_aspect('equal')
+        except NotImplementedError:
+            pass
     else:
-        # Plotting the state trajectories
-        if xs is not None:
-            q = list([] for _ in range(nq))
-            qdot = list([] for _ in range(nv))
-            for timeframe in xs:
-                for j, val in enumerate(timeframe):
-                    if j < nq:
-                        q[j].append(np.asscalar(val))
-                    else:
-                        qdot[j - nq].append(np.asscalar(val))
-
-    plt.figure(fig_title)
-    for index in range(nq):
-        plt.title(fig_title)
-        plt.plot(q[index], qdot[index])
-        plt.xlabel('$q_' + str(index) + '$')
-        plt.ylabel('$\dot{q}_' + str(index) + '$')
-    plt.grid(True)
-    add_pendulum_plot(fig_title)
-    plt.gca().set_aspect('equal', adjustable='box')
-    if image_folder is not None:
-        if not os.path.exists(image_folder):
-            os.makedirs(image_folder)
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-    plt.show()
-
-def plot_solution(ddp, image_folder = None, extension = 'pdf'):
-    '''
-    Plotting the solution and the DDP convergence
-    '''
-    plotOCSolution(ddp, image_folder, extension)
-    plotConvergence(
-                    ddp,
-                    image_folder,
-                    extension)
-
-def frame_position(ddp, frame_name):
-    '''
-    Returns the position of a frame for a given configuration
-    '''
-    robot_data = ddp.robot_model.createData()
-    frame_id = ddp.robot_model.getFrameId(frame_name)
-    x = []
-    y = []
-    z = []
-
-    for i in ddp.xs:
-        pinocchio.updateFramePlacements(ddp.robot_model, robot_data)
-        pinocchio.forwardKinematics(ddp.robot_model, robot_data, i[:ddp.robot_model.nq], i[ddp.robot_model.nq:])
-        # changed for pinocchio array
-        x.append(robot_data.oMf[frame_id].translation[0])
-        y.append(robot_data.oMf[frame_id].translation[1])
-        z.append(robot_data.oMf[frame_id].translation[2])
-    return x, y, z
-
-def plot_frame_trajectory(ddp, frame_name, image_folder = None, extension = 'pdf'):
-    '''
-    Plots a specific frame trajectory in time
-    '''
-    x, y, z = frame_position(ddp, frame_name)
-
-    fig_title = 'gripper_reference'
-    plt.figure('Gripper_reference_frame_traj')
-    ax = plt.axes(projection = '3d')
-    ax.scatter(x[1], y[1], z[1], 'red')
-    ax.plot3D(x[1:], y[1:], z[1:], 'red')
-    plt.title('Gripper trajectory')
-    plt.xlabel('x [m]')
-    plt.ylabel('y [m]')
-    plt.grid(True)
-    if image_folder is not None:
-        if not os.path.exists(image_folder):
-            os.makedirs(image_folder)
-        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
-
-    # Make axes limits
-    xyzlim = np.array([ax.get_xlim3d(),ax.get_ylim3d(),ax.get_zlim3d()]).T
-    XYZlim = [min(xyzlim[0]),max(xyzlim[1])]
-    ax.set_xlim3d(XYZlim)
-    ax.set_ylim3d(XYZlim)
-    ax.set_zlim3d(XYZlim)
-    try:
+        ax = plt.axes()
+        for frame_name in frame_names[1:]:
+            x, y, z = frame_position(ddp, frame_name)
+            ax.plot(x[1:], z[1:])
+            initial_positions = np.append(initial_positions, np.array([x[1], z[1]]))
+            final_positions = np.append(final_positions, np.array([x[-1], z[-1]]))
+        if target is not None:
+            ax.scatter(target[0], target[2], marker = 'x', color = 'red')
+        ax.scatter(initial_positions[0::2], initial_positions[1::2], color = 'black')
+        ax.scatter(final_positions[0::2], final_positions[1::2], color = 'blue')
         ax.set_aspect('equal')
-    except NotImplementedError:
-        pass
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
+        ax.legend(frame_names[1:] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
+        ax.plot(initial_positions[0::2], initial_positions[1::2], color = 'grey', alpha = 0.7)
+        ax.plot(final_positions[0::2], final_positions[1::2], color = 'grey', alpha = 0.7)
 
+    plt.title('Monoped Trajectory')
+    plt.xlabel('x [m]')
+    if trid:
+        plt.ylabel('y [m]')
+    else:
+        plt.ylabel('z [m]')
+    plt.grid(True)
+    if image_folder is not None:
+        if not os.path.exists(image_folder):
+            os.makedirs(image_folder)
+        plt.savefig(image_folder + fig_title + '.' + extension, format = extension)
     plt.show()
-
-def acc(x):
-    return np.sin(x)*1*9.81/2
-
-def pendulum_dyn(state, dt = 1e-3):
-    a = acc(state[0][-1])
-    v = a*dt + state[1][-1]
-    state[1].append(v)
-    state[0].append(state[0][-1] + v*dt)
-
-def plot_trajectory(states, name = 'figure', color = 'grey'):
-    plt.figure(name)
-    plt.plot(states[0], states[1], color = color, linewidth = .5, linestyle=':')
-    plt.plot(np.array(states[0]), - np.array(states[1]), color = color, linewidth = .5, linestyle=':')
-
-def add_pendulum_plot(figure):
-    for vel in range(-2, 3):
-        for pos in range(-2, 3):
-            states = [[np.pi*(pos/2)], [vel]]
-            # print(states)
-            for _ in range(int(2e3)):
-                pendulum_dyn(states)
-            plot_trajectory(states, figure)
-    # adding the separatrix
-    states = [[np.pi], [-np.sqrt(9.812 * 2)]]
-    for _ in range(int(3e3)):
-        pendulum_dyn(states)
-    plot_trajectory(states, figure, color = 'grey')
-    states = [[-np.pi], [np.sqrt(9.812 * 2)]]
-    for _ in range(int(3e3)):
-        pendulum_dyn(states)
-    plot_trajectory(states, figure, color = 'grey')

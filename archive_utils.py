@@ -146,7 +146,6 @@ def animateSolution(archive, index, robot_model, frameNames = None, target = Non
         im_ani.save('task_animation.mp4', writer=writer)
     plt.show()
 
-
 def extract(archive, tag, index=0):
     '''
     Function used to handle the multidimensionality of the search space
@@ -412,16 +411,11 @@ def generationMeans(archive, tag, gen = 100):
     return means
 
 def solve_ddp(results_archive, index, conf):
-    import ddp_utils
-    robot_model = pendulum.createPendulum(conf.nbJoints)
+    robot_model = pendulum.createPendulum(conf.nbJoint)
     modify_model.update_model(robot_model, results_archive['motor_mass'][index], results_archive['n_gear'][index], results_archive['lambda_l'][index])
-    robot_model.b = np.zeros(conf.nbJoints)
+    robot_model.b = np.zeros(conf.nbJoint)
     ddp, _ = initialize_problem.create_pendulum_problem(robot_model, conf)
     ddp.thstop = conf.th_stop
     ddp.setCallbacks([crocoddyl.CallbackLogger(), crocoddyl.CallbackVerbose(),])
     ddp.solve([],[], conf.max_iter)
-    ddp_utils.plotOCSolution(ddp)
-    ddp_utils.plotConvergence(ddp)
-    ddp_utils.plot_power(ddp)
-    ddp_utils.plot_frame_trajectory(ddp, 'tip')
     return ddp
