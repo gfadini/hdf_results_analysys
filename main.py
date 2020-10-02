@@ -47,10 +47,11 @@ if __name__ == "__main__":
                                                 results_archive['lambda_l'][best_acceptable]))
 
         image_folder = 'plots/' + prettyName + '/'
+        extension = 'png'
 
-        plot_codesign_results(results_archive, acceptable_solutions, None, None, quiet = False)
-        plotPower(results_archive, best_acceptable, None, None, quiet = False)
-        plotSolution(results_archive, best_acceptable, None, None, quiet = False)
+        plot_codesign_results(results_archive, acceptable_solutions, image_folder, 'png', quiet = False)
+        plotPower(results_archive, best_acceptable, image_folder, 'png', quiet = False)
+        plotSolution(results_archive, best_acceptable, image_folder, 'png', quiet = False)
         frames=[frame.name for frame in robot_model.frames]
         animateSolution(results_archive, best_acceptable, robot_model.copy(), frameNames=frames, target=np.array([0,0,1]), dt = 1e-2)
         plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), frame_names=frames, target=np.array([0,0,1]), trid = False, quiet = False)
