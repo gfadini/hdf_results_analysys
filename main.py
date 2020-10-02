@@ -68,7 +68,7 @@ if __name__ == "__main__":
                 self.dt = 2e-3
                 self.T = int(1e3)
                 self.target = [0, 0, 1]
-                self.nbJoints = 3
+                self.nbJoint = 1
                 self.weight_gripperPose = 1e3
                 self.weight_finalVelocity = self.weight_gripperPose
                 self.weight_power_losses_cost_correction = 1e-1
@@ -90,3 +90,7 @@ if __name__ == "__main__":
         conf = configurationParams()
         conf.overwrite(results_archive)
         ddp = solve_ddp(results_archive, best_acceptable, conf)
+        ddp_utils.plotOCSolution(ddp)
+        ddp_utils.plotConvergence(ddp)
+        ddp_utils.plot_power(ddp)
+        ddp_utils.plot_frame_trajectory(ddp, 'tip')
