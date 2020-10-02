@@ -4,7 +4,7 @@ import crocoddyl
 import time
 import os
 import matplotlib
-# matplotlib.rcParams['text.usetex'] = True
+matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
@@ -100,15 +100,13 @@ def cost_stats(ddp):
     '''
     ddp_data = ddp.problem.runningDatas
 
-    u_cost, pf_cost, pm_cost, pt_cost =  list([] for _ in range(4))
+    pf_cost, pt_cost =  list([] for _ in range(4))
 
     for data in ddp_data:
-        append_cost_to_vector(data, u_cost, 'control_bound')
         append_cost_to_vector(data, pf_cost, 'joint_friction')
-        append_cost_to_vector(data, pm_cost, 'mech_power')
         append_cost_to_vector(data, pt_cost, 'joule_dissipation')
 
-    return np.array(u_cost), np.array(pf_cost), np.array(pm_cost), np.array(pt_cost)
+    return np.array(pf_cost), np.array(pt_cost)
 
 def energy_stats(ddp, pm, pt, pf):
     '''
@@ -137,7 +135,7 @@ def plot_power(ddp, image_folder = None, extension = 'pdf'):
     It also prints a summary of the energetic expenditure to the terminal
     '''
 
-    u_cost, pf_cost, pm_cost, pt_cost = cost_stats(ddp)
+    pf_cost, pt_cost = cost_stats(ddp)
     pm = []
     T = np.arange(start=0, stop=ddp.problem.runningModels[0].dt*(ddp.problem.T), step=ddp.problem.runningModels[0].dt)
     for i, torque in enumerate(ddp.us):
