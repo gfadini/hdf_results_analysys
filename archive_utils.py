@@ -412,7 +412,7 @@ def generationMeans(archive, tag, gen = 100):
 
 def solve_ddp(results_archive, index, conf):
     robot_model = pendulum.createPendulum(conf.nbJoint)
-    modify_model.update_model(robot_model, results_archive['motor_mass'][index], results_archive['n_gear'][index], results_archive['lambda_l'][index])
+    modify_model.update_model(robot_model, np.array(results_archive['motor_mass'][index]), np.array(results_archive['n_gear'][index]), np.array(results_archive['lambda_l'][index]))
     robot_model.b = np.zeros(conf.nbJoint)
     ddp, _ = initialize_problem.create_pendulum_problem(robot_model, conf)
     ddp.thstop = conf.th_stop

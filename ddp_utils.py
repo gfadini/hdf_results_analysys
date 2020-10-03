@@ -4,7 +4,7 @@ import crocoddyl
 import time
 import os
 import matplotlib
-matplotlib.rcParams['text.usetex'] = True
+# matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 
@@ -100,7 +100,7 @@ def cost_stats(ddp):
     '''
     ddp_data = ddp.problem.runningDatas
 
-    pf_cost, pt_cost =  list([] for _ in range(4))
+    pf_cost, pt_cost =  list([] for _ in range(2))
 
     for data in ddp_data:
         append_cost_to_vector(data, pf_cost, 'joint_friction')
@@ -318,11 +318,12 @@ def plot_frame_trajectory(ddp, frame_names, image_folder = None, extension = 'pd
         ax.set_aspect('equal')
         box = ax.get_position()
         ax.set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
-        ax.legend(frame_names[1:] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
+        frame_labels = ["$" + str(name) + '$' for name in frame_names[1:]]
+        ax.legend(frame_labels + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
         ax.plot(initial_positions[0::2], initial_positions[1::2], color = 'grey', alpha = 0.7)
         ax.plot(final_positions[0::2], final_positions[1::2], color = 'grey', alpha = 0.7)
 
-    plt.title('Monoped Trajectory')
+    plt.title('Trajectory')
     plt.xlabel('x [m]')
     if trid:
         plt.ylabel('y [m]')
