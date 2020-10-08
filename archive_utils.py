@@ -104,7 +104,7 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
         plt.show()
 
 
-def animateSolution(archive, index, robot_model, frameNames = None, target = None, dt = 1e3, saveAnimation=False):
+def animateSolution(archive, index, robot_model, image_folder = './', frameNames = None, target = None, dt = 1e3, saveAnimation=False):
 
     l_l = archive['lambda_l'][index]
     modify_model.upscale_structure(robot_model, l_l)
@@ -143,7 +143,7 @@ def animateSolution(archive, index, robot_model, frameNames = None, target = Non
     if saveAnimation:
         Writer = animation.writers['ffmpeg']
         writer = Writer(fps=int(1/dt/scalingFactor), metadata=dict(artist='G. Fadini'), bitrate=-1)
-        im_ani.save('task_animation.mp4', writer=writer)
+        im_ani.save(image_folder + 'task_animation.mp4', writer=writer)
     plt.show()
 
 def extract(archive, tag, index=0):
@@ -166,8 +166,11 @@ def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plo
     '''
     plt.figure(figTitle)
     if y is not None and x is not None:
-        plt.scatter(x, y, color = color, s=2**2)
-        plt.ylim(bottom=min(y))
+        if points:
+            plt.scatter(x, y, color = color, s=2**2)
+            plt.ylim(bottom=min(y))
+        else:
+            plt.plot(x, y, color = color)
     elif y is None and x is not None :
         if points:
             plt.plot(x, linestyle='none', marker = 'o', markersize = 2, color=color)
@@ -250,6 +253,7 @@ def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, 
 
     if selectedIndexes is None:
         # take all values
+        print('Printing all results, no index is specified')
         selectedIndexes = list(True for _ in range(archive['motor_mass'].shape[0]))
 
     cost = np.log(extract(archive, 'cost')[selectedIndexes] + 1e-3)
@@ -265,6 +269,12 @@ def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, 
         simplePlot(motorMass, cost, image_folder, extension, 'cost_mass_' + label, 'blue', 'Cost and motor mass ' + label, '$m_m \; [$Kg$]$', '$\log(cost)$')
         simplePlot(gearRatio, cost, image_folder, extension, 'cost_trasmission_' + label, 'red', 'Cost and transmission ' + label, '$n \; [\;]$', '$\log(cost)$')
         simplePlot(scaling, cost, image_folder, extension, 'cost_scale_' + label, 'orange', 'Cost and scaling ' + label, '$\lambda_l \; [\;]$', '$\log(cost)$')
+
+    try:
+        contactTime = np.array(archive['T_c'][selectedIndexes])
+        simplePlot(contactTime, cost, image_folder, extension, 'timing', 'black', 'Cost and timing ' + label, '$T_c \; [s]$', '$\log(cost)$')
+    except:
+        print('Contact time not found')
 
     simplePlot(cost, None, image_folder, extension, 'cost_evo', 'blue', 'Cost evolution during the optimization', 'Number of Iteration', '$\log(cost)$',)
     simplePlot(error, None, image_folder, extension, 'error_evo', 'red', 'Error evolution during the optimization', 'Number of Iteration', '$\log(error)$')
@@ -287,14 +297,16 @@ def selectSolution(archive, key, index):
 def getChampionIndex(archive):
     return np.where(np.array(archive['cost']) == np.amin(np.array(archive['cost'])))[0][0]
 
-def plotPower(archive,  index, image_folder, extension, figTitle = 'power_plot', plotTitle = 'Power components', xlabel = 'timestep [ ]', ylabel = 'Power [W]', quiet = True):
+def plotPower(archive,  index, image_folder, extension, figTitle = 'power_plot', plotTitle = 'Power components', dt = 1e-2, xlabel = 'timestep [ ]', ylabel = 'Power [W]', quiet = True):
     pm = np.zeros(archive['us'][index].shape[0])
+    N = len(pm)
+    time = np.arange(start=0, stop=dt*N, step=dt)
     for i, torque in enumerate(archive['us'][index]):
         pm[i] = np.sum(torque * archive['xs'][index][i][-archive['us'][index].shape[1]:])
-    simplePlot(pm, None, image_folder, extension, figTitle, 'blue', plotTitle, xlabel, ylabel, points=False)
-    simplePlot(archive['pf_cost'][index], None, None, None, figTitle, 'magenta', plotTitle, xlabel, ylabel, points=False)
-    simplePlot(archive['pt_cost'][index], None, image_folder, extension, figTitle, 'red', plotTitle, xlabel, ylabel, points=False)
-    simplePlot(pm + archive['pf_cost'][index] + archive['pt_cost'][index], None, image_folder, extension, figTitle, 'green', plotTitle, xlabel, ylabel, points=False)
+    simplePlot(time, pm, image_folder, extension, figTitle, 'blue', plotTitle, xlabel, ylabel, points=False)
+    simplePlot(time, archive['pf_cost'][index], None, None, figTitle, 'magenta', plotTitle, xlabel, ylabel, points=False)
+    simplePlot(time, archive['pt_cost'][index], None, None, figTitle, 'red', plotTitle, xlabel, ylabel, points=False)
+    simplePlot(time, pm + archive['pf_cost'][index] + archive['pt_cost'][index], image_folder, extension, figTitle, 'green', plotTitle, xlabel, ylabel, points=False)
     plt.legend(['$P_m$', '$P_f$', '$P_t$', '$P_{el}$'])
     if not quiet:
         plt.show()
@@ -344,7 +356,7 @@ def energy_stats(archive, index, robot_model, dt = 1e-3):
     pf = archive['pf_cost'][index]
     pm = np.zeros(us.shape[0])
     for i, torque in enumerate(us):
-        pm[i] = np.sum(torque * xs[i][-robot_model.nv:])
+        pm[i] = np.sum(torque * xs[i][-us.shape[1]:])
 
     pin_data = robot_model.createData()
     q0 = xs[0][:robot_model.nq]
@@ -360,7 +372,7 @@ def energy_stats(archive, index, robot_model, dt = 1e-3):
     print('Friction dissipation: {:0.3f} J'.format(np.sum(pf)*dt))
     print('Total Energy needed: {:0.3f} J'.format(np.sum(pt)*dt + np.sum(pf)*dt + mechanical))
 
-def plotSolution(archive, index, image_folder, extension, figTitle = 'solution', plotTitle = 'Solution', xlabel = 'time [s]', ylabel = '', quiet = True):
+def plotSolution(archive, index, image_folder, extension, figTitle = 'solution', plotTitle = 'Solution', dt = 1e-2, xlabel = 'time [s]', ylabel = '', quiet = True):
     '''
     Plots the ddp solution, xs, us
     '''
@@ -373,7 +385,6 @@ def plotSolution(archive, index, image_folder, extension, figTitle = 'solution',
     else:
         xsPlotIdx = 211
         usPlotIdx = 212
-    dt = 1e-2
     N = len(us[:,0])
     time = np.arange(start=0, stop=dt*N + dt, step=dt)
 

@@ -7,17 +7,15 @@ def update_model(model, motor_mass, n_gear, lambda_l):
     modify_actuation(model, np.array(motor_mass), np.array(n_gear))
     add_motor_mass(model, np.array(motor_mass))
 
-def upscale_structure(model, lambda_l, floating = False):
-    if floating:
-        lambda_l = np.concatenate([np.ones(1), lambda_l])
+def upscale_structure(model, lambda_l):
     # MODIFY THE INERTIAL PARAMETERS, just upscaling all limbs
-    for index in range(len(model.inertias)-1):
+    for index in range(2, 2 + len(lambda_l) - 1):
         # scale all the masses
-        model.inertias[index+1].mass = lambda_l[index]**3 * model.inertias[index+1].mass
+        model.inertias[index].mass = lambda_l[index-2]**3 * model.inertias[index].mass
         # scale center of mass
-        model.inertias[index+1].lever = lambda_l[index] * model.inertias[index+1].lever
+        model.inertias[index].lever = lambda_l[index-2] * model.inertias[index].lever
         # scale all inertia tensors
-        model.inertias[index+1].inertia = lambda_l[index]**5 * model.inertias[index+1].inertia
+        model.inertias[index].inertia = lambda_l[index-2]**5 * model.inertias[index].inertia
         # MODIFY all LINK DIMENSIONS, linear placement of frames with respect to link before
 
     model.frames[-1].placement.translation = lambda_l[-1] * model.frames[-1].placement.translation
@@ -40,7 +38,7 @@ def modify_actuation(model, motor_mass, n_gear):
     # saving the dissipative parameters
     model.K_m = K_m
     model.T_mu = T_mu
-    model.b = 1.341e-5 * np.ones(len(T_mu))
+    model.b = 1.341e-5*np.ones(len(motor_mass))
     # modify POSITION LIMITS
     # upper and lower LIMITS (to defaults)
     model.lowerPositionLimit = np.array(model.lowerPositionLimit)
@@ -51,8 +49,8 @@ def add_motor_mass(model, motor_mass):
         for i in range(2, len(model.inertias)):
             model.inertias[i].mass = model.inertias[i].mass + motor_mass
     elif isinstance(motor_mass, np.ndarray):
-        for i in range(2, len(model.inertias)):
-            model.inertias[i].mass = model.inertias[i].mass + motor_mass[i-1]
+        for i, j in enumerate(range(2, len(model.inertias))):
+            model.inertias[j].mass = model.inertias[j].mass + motor_mass[i]
 
 def remove_motor_mass(model, motor_mass):
     add_motor_mass(model, - motor_mass)

@@ -4,7 +4,7 @@ import sys
 import time
 import os
 import numpy as np
-import pendulum, modify_model, initialize_problem
+import pendulum, monoped, modify_model, initialize_problem
 from archive_utils import *
 import ddp_utils
 
@@ -17,7 +17,7 @@ if __name__ == "__main__":
         prettyName = cleanName(filePath, ['results/', '.npz', '.hdf5'])
         results_archive = readFromPath(filePath)
 
-        robot_model = pendulum.createPendulum(nbJoint=results_archive['motor_mass'].shape[1])
+        robot_model = monoped.createMonoped(nbJoint = 2, linkLength=0.16, floatingMass=0.37, linkMass=0.1)
 
         are_solved = np.array(results_archive['solved'])
         try:
@@ -49,13 +49,14 @@ if __name__ == "__main__":
         image_folder = 'plots/' + prettyName + '/'
         extension = 'png'
 
-        # plot_codesign_results(results_archive, acceptable_solutions, image_folder, 'png', quiet = False)
-        # plotPower(results_archive, best_acceptable, image_folder, 'png', quiet = False)
-        # plotSolution(results_archive, best_acceptable, image_folder, 'png', quiet = False)
+        plot_codesign_results(results_archive, acceptable_solutions, image_folder, 'png', quiet = False)
+        plotPower(results_archive, best_acceptable, image_folder, 'png', dt = 1e-3, quiet = False)
+        plotSolution(results_archive, best_acceptable, image_folder, 'png', dt = 1e-3, quiet = False)
         frames=[frame.name for frame in robot_model.frames]
-        # animateSolution(results_archive, best_acceptable, robot_model.copy(), frameNames=frames, target=np.array([0,0,1]), dt = 1e-2)
-        # plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), frame_names=frames, target=np.array([0,0,1]), trid = False, quiet = False)
-        # energy_stats(results_archive, best_acceptable, robot_model.copy(), dt=1e-2)
+        frames=['revolute_1', 'revolute_2', 'foot']
+        animateSolution(results_archive, best_acceptable, robot_model.copy(), saveAnimation=True, image_folder=image_folder, frameNames=frames, target=np.array([0.08, 0., 0.64]), dt = 1e-3)
+        plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), image_folder=image_folder, frame_names=frames, target=np.array([0.08, 0., 0.64]), trid = False, quiet = False)
+        energy_stats(results_archive, best_acceptable, robot_model.copy(), dt=1e-3)
 
         plt.figure('histogram')
         _ = plt.hist(np.log(np.array(results_archive['cost'])[acceptable_solutions]), bins='auto')
@@ -69,7 +70,7 @@ if __name__ == "__main__":
                 self.dt = 2e-3
                 self.T = int(1e3)
                 self.target = [0, 0, 1]
-                self.nbJoint = 2
+                self.nbJoint = 3
                 self.weight_gripperPose = 1e3
                 self.weight_finalVelocity = self.weight_gripperPose
                 self.weight_power_losses_cost_correction = 1e-1
@@ -88,10 +89,10 @@ if __name__ == "__main__":
                     except:
                         print('Key {:} not found in the stored archive, to default'.format(attribute))
 
-        conf = configurationParams()
-        conf.overwrite(results_archive)
-        ddp = solve_ddp(results_archive, best_acceptable, conf)
-        ddp_utils.plotOCSolution(ddp)
-        ddp_utils.plotConvergence(ddp)
-        ddp_utils.plot_power(ddp)
-        ddp_utils.plot_frame_trajectory(ddp, [frame.name for frame  in robot_model.frames], trid = False)
+        # conf = configurationParams()
+        # conf.overwrite(results_archive)
+        # ddp = solve_ddp(results_archive, best_acceptable, conf)
+        # ddp_utils.plotOCSolution(ddp)
+        # ddp_utils.plotConvergence(ddp)
+        # ddp_utils.plot_power(ddp)
+        # ddp_utils.plot_frame_trajectory(ddp, [frame.name for frame  in robot_model.frames], trid = False)
