@@ -45,16 +45,17 @@ if __name__ == "__main__":
                                                 results_archive['motor_mass'][best_acceptable],
                                                 results_archive['n_gear'][best_acceptable],
                                                 results_archive['lambda_l'][best_acceptable]))
+        print('Contact timing {:} s'.format(results_archive['T_c'][best_acceptable]))
 
         image_folder = 'plots/' + prettyName + '/'
-        extension = 'png'
+        extension = 'eps'
 
-        plot_codesign_results(results_archive, acceptable_solutions, image_folder, 'png', quiet = False)
-        plotPower(results_archive, best_acceptable, image_folder, 'png', dt = 1e-3, quiet = False)
-        plotSolution(results_archive, best_acceptable, image_folder, 'png', dt = 1e-3, quiet = False)
+        plot_codesign_results(results_archive, acceptable_solutions, image_folder, extension=extension, quiet = False)
+        plotPower(results_archive, best_acceptable, image_folder, extension=extension, dt = 1e-3, quiet = False)
+        plotSolution(results_archive, best_acceptable, image_folder, extension=extension, dt = 1e-3, quiet = False)
         frames=[frame.name for frame in robot_model.frames]
         frames=['revolute_1', 'revolute_2', 'foot']
-        animateSolution(results_archive, best_acceptable, robot_model.copy(), saveAnimation=True, image_folder=image_folder, frameNames=frames, target=np.array([0.08, 0., 0.64]), dt = 1e-3)
+        #animateSolution(results_archive, best_acceptable, robot_model.copy(), saveAnimation=True, image_folder=image_folder, frameNames=frames, target=np.array([0.08, 0., 0.64]), dt = 1e-3)
         plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), image_folder=image_folder, frame_names=frames, target=np.array([0.08, 0., 0.64]), trid = False, quiet = False)
         energy_stats(results_archive, best_acceptable, robot_model.copy(), dt=1e-3)
 

@@ -38,7 +38,7 @@ def frame_position(archive, index, robot_model, frame_name):
         z.append(robot_data.oMf[frame_id].translation[2])
     return x, y, z
 
-def plot_frame_trajectory(archive, index, robot_model, frame_names, target, image_folder = None, extension = 'pdf', trid = True, quiet = True):
+def plot_frame_trajectory(archive, index, robot_model, frame_names, target, image_folder = None, fig_title = 'frame_trajectory', extension = 'pdf', trid = True, quiet = True):
     '''
     Plots a specific or multiple frame trajectory in time, 2D or 3D
     '''
@@ -48,7 +48,6 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
     l_l = archive['lambda_l'][index]
     modify_model.update_model(robot_model, m_m, n_g, l_l)
 
-    fig_title = 'frame_trajectory'
     plt.figure(fig_title)
     initial_positions = np.array([])
     final_positions = np.array([])
@@ -85,7 +84,7 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
         plt.gca().set_aspect('equal')
         box = plt.gca().get_position()
         plt.gca().set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
-        plt.gca().legend(['${}$'.format(frame) for frame in frame_names[1:]] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
+        plt.gca().legend(['${}$'.format(frame) for frame in frame_names] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
         plt.gca().plot(initial_positions[0::2], initial_positions[1::2], color = 'grey', alpha = 0.7)
         plt.gca().plot(final_positions[0::2], final_positions[1::2], color = 'grey', alpha = 0.7)
 
