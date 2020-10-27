@@ -20,8 +20,8 @@ def upscale_structure(model, lambda_l):
 
     model.frames[-1].placement.translation = lambda_l[-1] * model.frames[-1].placement.translation
 
-    for index in range(2, 2 + len(lambda_l) - 1):
-        model.jointPlacements[index].translation = lambda_l[index-2] * model.jointPlacements[index].translation
+    for index in range(3, 3 + len(lambda_l) - 1):
+            model.jointPlacements[index].translation = lambda_l[index-3] * model.jointPlacements[index].translation
 
     return model
 
