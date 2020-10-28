@@ -282,7 +282,7 @@ def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, 
         # is not monodimensional
         motorMass.shape[1]
     except:
-        simple3dPlot(motorMass, gearRatio, cost, image_folder, 'png', figTitle='cost_landscape', plotTitle='Cost landscape', xlabel='$m_m$', ylabel='$n$', zlabel='cost', quiet=False, animate=False)
+        simple3dPlot(motorMass, gearRatio, cost, image_folder, extension, figTitle='cost_landscape', plotTitle='Cost landscape', xlabel='$m_m$', ylabel='$n$', zlabel='cost', quiet=False, animate=False)
         cmapPlot(scaling, motorMass, cost, image_folder, extension, 'motor_lambda', 'BuPu_r', 'Motor mass and scaling', '$\\lambda_l$ [ ]', '$m_m$ [Kg]')
         cmapPlot(motorMass, gearRatio, cost, image_folder, extension, 'motor_transmission', 'BuPu_r', 'Motor mass and gear ratio', '$m_m$ [Kg]', '$n$ [ ]')
         cmapPlot(gearRatio, scaling, cost, image_folder, extension, 'transmission_lambda', 'BuPu_r', 'Gear ratio and scaling', '$n$ [ ]', '$\\lambda_l$ [ ]')
