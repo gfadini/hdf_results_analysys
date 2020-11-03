@@ -21,12 +21,13 @@ if __name__ == "__main__":
 
         are_solved = np.array(results_archive['solved'])
         try:
-            acceptable_tolerance = np.array(results_archive['th_stop']) < 1e-8 #results_archive['th_stop_tol']
+            acceptable_tolerance = np.array(results_archive['th_stop']) < results_archive['th_stop_tol']
         except:
             acceptable_tolerance = np.array(results_archive['th_stop']) < 1e-9
         acceptable_cost = np.array(results_archive['cost']) < np.mean(np.array(results_archive['cost']))
         acceptable_error = np.array(results_archive['error']) < 1e-3
-        acceptable_solutions = are_solved # acceptable_error * acceptable_tolerance * acceptable_cost * are_solved
+        # no_bound_hit = np.array(results_archive['n_gear'][:,0]) != 3
+        acceptable_solutions = are_solved # * no_bound_hit # np.arange(1, 340, 1) # acceptable_error * acceptable_tolerance * acceptable_cost * are_solved
         print('The acceptable solutions are {:2.2f}%'.format(100 * sum(acceptable_solutions)/results_archive['cost'].shape[0]))
 
         if sum(acceptable_solutions) == 0:
@@ -48,15 +49,16 @@ if __name__ == "__main__":
         print('Contact timing {:} s'.format(results_archive['T_c'][best_acceptable]))
 
         image_folder = 'plots/' + prettyName + '/'
-        extension = 'eps'
+        extension = 'pdf'
+        showNoPlot = True
 
-        plot_codesign_results(results_archive, acceptable_solutions, image_folder, extension=extension, quiet = False)
-        plotPower(results_archive, best_acceptable, image_folder, extension=extension, dt = 1e-3, quiet = False)
-        plotSolution(results_archive, best_acceptable, image_folder, extension=extension, dt = 1e-3, quiet = False)
+        plot_codesign_results(results_archive, acceptable_solutions, image_folder, extension='svg', quiet = showNoPlot)
+        plotPower(results_archive, best_acceptable, image_folder, extension=extension, xlabel = 'time [s]', dt = 1e-3, quiet = showNoPlot)
+        plotSolutionMonoped(results_archive, best_acceptable, image_folder, extension=extension, dt = 1e-3, quiet = showNoPlot)
         frames=[frame.name for frame in robot_model.frames]
         frames=['revolute_1', 'revolute_2', 'foot']
-        #animateSolution(results_archive, best_acceptable, robot_model.copy(), saveAnimation=True, image_folder=image_folder, frameNames=frames, target=np.array([0.08, 0., 0.64]), dt = 1e-3)
-        plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), image_folder=image_folder, frame_names=frames, target=np.array([0.08, 0., 0.64]), trid = False, quiet = False)
+        animateSolution(results_archive, best_acceptable, robot_model.copy(), saveAnimation=True, image_folder=image_folder, frameNames=frames, target=np.array([0.0, 0., 0.64]), dt = 1e-3)
+        plot_frame_trajectory(results_archive, best_acceptable, robot_model.copy(), image_folder=image_folder, extension=extension, frame_names=frames, target=np.array([0.0, 0., 0.64]), trid = False, quiet = showNoPlot)
         energy_stats(results_archive, best_acceptable, robot_model.copy(), dt=1e-3)
 
         plt.figure('histogram')

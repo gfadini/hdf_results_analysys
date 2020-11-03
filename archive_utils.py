@@ -1,7 +1,6 @@
 import os
 import h5py
 import matplotlib
-matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 import numpy as np
@@ -9,6 +8,44 @@ import pendulum, modify_model, initialize_problem
 import pinocchio
 import crocoddyl
 import example_robot_data
+from scipy.signal import savgol_filter
+EXTENSION = 'svg'
+'''
+DEFAULT_FONT_SIZE = 15
+DEFAULT_AXIS_FONT_SIZE = DEFAULT_FONT_SIZE
+DEFAULT_LINE_WIDTH = 2  # 13
+DEFAULT_MARKER_SIZE = 6
+DEFAULT_FONT_FAMILY = 'STIXGeneral' # 'sans-serif'
+DEFAULT_FONT_SERIF = ['Times New Roman', 'Times', 'Bitstream Vera Serif', 'DejaVu Serif', 'New Century Schoolbook',
+                      'Century Schoolbook L', 'Utopia', 'ITC Bookman', 'Bookman', 'Nimbus Roman No9 L', 'Palatino',
+                      'Charter', 'serif']
+DEFAULT_FIGURE_FACE_COLOR = 'white'  # figure facecolor 0.75 is scalar gray
+DEFAULT_LEGEND_FONT_SIZE = DEFAULT_FONT_SIZE
+DEFAULT_AXES_LABEL_SIZE = DEFAULT_FONT_SIZE  # fontsize of the x any y labels
+DEFAULT_TICK_LABEL_SIZE = 10
+DEFAULT_TEXT_USE_TEX = True
+custom_colors = [
+                    '#ff4444', '#ffbb33', '#00c851', '#33b5e5', '#2bbbad', '#4285f4', '#aa66cc',    # lightones
+                    '#cc0000', '#ff8800', '#007e33', '#0099cc', '#00695c', '#0d47a1', '#9933cc',    # darktones
+                ]
+matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(color=custom_colors)
+matplotlib.rcParams['lines.linewidth'] = DEFAULT_LINE_WIDTH
+matplotlib.rcParams['lines.markersize'] = DEFAULT_MARKER_SIZE
+matplotlib.rcParams['patch.linewidth'] = 1
+matplotlib.rcParams['axes.grid'] = True
+matplotlib.rcParams['font.family'] = DEFAULT_FONT_FAMILY
+matplotlib.rcParams['font.size'] = DEFAULT_FONT_SIZE
+matplotlib.rcParams['font.serif'] = DEFAULT_FONT_SERIF
+matplotlib.rcParams['text.usetex'] = DEFAULT_TEXT_USE_TEX
+matplotlib.rcParams['axes.labelsize'] = DEFAULT_AXES_LABEL_SIZE
+matplotlib.rcParams['axes.titlesize'] = DEFAULT_FONT_SIZE
+matplotlib.rcParams['xtick.labelsize'] = DEFAULT_TICK_LABEL_SIZE
+matplotlib.rcParams['ytick.labelsize'] = DEFAULT_TICK_LABEL_SIZE
+matplotlib.rcParams['legend.fontsize'] = DEFAULT_LEGEND_FONT_SIZE
+matplotlib.rcParams['figure.facecolor'] = DEFAULT_FIGURE_FACE_COLOR
+matplotlib.rcParams['figure.figsize'] = 7.2, 4.45  # 12, 9 # to check from another source it was 3.3, 2.5 with fontsize 8
+matplotlib.rcParams[figure.dpi] = 600
+'''
 
 def readFromPath(filePath):
     results_archive = h5py.File(filePath, mode='r')
@@ -38,7 +75,7 @@ def frame_position(archive, index, robot_model, frame_name):
         z.append(robot_data.oMf[frame_id].translation[2])
     return x, y, z
 
-def plot_frame_trajectory(archive, index, robot_model, frame_names, target, image_folder = None, fig_title = 'frame_trajectory', extension = 'pdf', trid = True, quiet = True):
+def plot_frame_trajectory(archive, index, robot_model, frame_names, target, image_folder = None, fig_title = 'frame_trajectory', extension = EXTENSION, trid = True, quiet = True):
     '''
     Plots a specific or multiple frame trajectory in time, 2D or 3D
     '''
@@ -85,8 +122,8 @@ def plot_frame_trajectory(archive, index, robot_model, frame_names, target, imag
         box = plt.gca().get_position()
         plt.gca().set_position([box.x0, box.y0 + box.height * 0.1, box.width, box.height * 0.9])
         plt.gca().legend(['${}$'.format(frame) for frame in frame_names] + ['target', 'initial', 'final'], loc='center right', bbox_to_anchor=(1.6, 0.5), fancybox=True, shadow=True)
-        plt.gca().plot(initial_positions[0::2], initial_positions[1::2], color = 'grey', alpha = 0.7)
-        plt.gca().plot(final_positions[0::2], final_positions[1::2], color = 'grey', alpha = 0.7)
+        plt.gca().plot(initial_positions[0::2], initial_positions[1::2], color = 'grey', linewidth=6,  alpha = 0.7)
+        plt.gca().plot(final_positions[0::2], final_positions[1::2], color = 'grey', linewidth=6, alpha = 0.7)
 
     plt.title('Frame Trajectory')
     plt.xlabel('x [m]')
@@ -159,25 +196,26 @@ def extract(archive, tag, index=0):
             tmp_array.append(i)
     return np.array(tmp_array)
 
-def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plotTitle = '', xlabel='x', ylabel='y', quiet = True, points = True):
+def simplePlot(x, y, image_folder, extension, figTitle='plot', color='blue', plotTitle = '', xlabel='x', ylabel='y', quiet = True, points = True, alpha = 1.):
     '''
     Generic scatter or line plot
     '''
     plt.figure(figTitle)
     if y is not None and x is not None:
         if points:
-            plt.scatter(x, y, color = color, s=2**2)
+            plt.scatter(x, y, color = color, alpha = alpha, s=2**2)
             plt.ylim(bottom=min(y))
         else:
-            plt.plot(x, y, color = color)
+            plt.plot(x, y, color = color, alpha=alpha)
     elif y is None and x is not None :
         if points:
-            plt.plot(x, linestyle='none', marker = 'o', markersize = 2, color=color)
+            plt.plot(x, linestyle='none', marker = 'o', markersize = 2, color=color, alpha=alpha)
         else:
-            plt.plot(x, color=color)
+            plt.plot(x, color=color, alpha=alpha)
     else:
         raise Exception('Data is needed for the plot!')
     plt.title(plotTitle)
+    plt.grid(True)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     if image_folder is not None:
@@ -244,7 +282,7 @@ def animate3dPlot(ax, image_folder, figTitle):
         js_file.write(animation_js)
         js_file.close()
 
-def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, extension = 'pdf', quiet = False):
+def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, extension = EXTENSION, quiet = False):
 
     '''
     Creates the saving directory if needed
@@ -255,8 +293,24 @@ def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, 
         print('Printing all results, no index is specified')
         selectedIndexes = list(True for _ in range(archive['motor_mass'].shape[0]))
 
-    cost = np.log(extract(archive, 'cost')[selectedIndexes] + 1e-3)
-    error =  np.log(extract(archive, 'error')[selectedIndexes] + 1e-3)
+    cost = np.log(extract(archive, 'cost')[selectedIndexes])
+    error =  np.log(extract(archive, 'error')[selectedIndexes])
+
+    def getLowerBound(vec):
+        '''
+        Small function to extract the rainfall minimum from left
+        '''
+        lowestValues = [vec[0]]
+        lowestIndexes = [0]
+        for index, value in enumerate(vec):
+            if value <= lowestValues[-1]:
+                lowestValues.append(lowestValues[-1])
+                lowestIndexes.append(index)
+                lowestValues.append(value)
+                lowestIndexes.append(index)
+        lowestValues.append(lowestValues[-1])
+        lowestIndexes.append(index)
+        return lowestIndexes, lowestValues
 
     for index in range(archive['motor_mass'].shape[1]):
         motorMass = extract(archive, 'motor_mass', index)[selectedIndexes]
@@ -265,18 +319,38 @@ def plot_codesign_results(archive, selectedIndexes = None, image_folder = None, 
 
         label = str(index)
 
-        simplePlot(motorMass, cost, image_folder, extension, 'cost_mass_' + label, 'blue', 'Cost and motor mass ' + label, '$m_m \; [$Kg$]$', '$\log(cost)$')
-        simplePlot(gearRatio, cost, image_folder, extension, 'cost_trasmission_' + label, 'red', 'Cost and transmission ' + label, '$n \; [\;]$', '$\log(cost)$')
-        simplePlot(scaling, cost, image_folder, extension, 'cost_scale_' + label, 'orange', 'Cost and scaling ' + label, '$\lambda_l \; [\;]$', '$\log(cost)$')
+        simplePlot(motorMass, cost, image_folder, extension, 'cost_mass_' + label, 'blue', 'Cost and motor mass ' + label, '$m_m \; [$Kg$]$', '$\ln(cost)$')
+        simplePlot(gearRatio, cost, image_folder, extension, 'cost_trasmission_' + label, 'red', 'Cost and transmission ' + label, '$n \; [\;]$', '$\ln(cost)$')
+        simplePlot(scaling, cost, image_folder, extension, 'cost_scale_' + label, 'orange', 'Cost and scaling ' + label, '$\lambda_l \; [\;]$', '$\ln(cost)$')
 
     try:
+        # contact time
         contactTime = np.array(archive['T_c'][selectedIndexes])
-        simplePlot(contactTime, cost, image_folder, extension, 'timing', 'black', 'Cost and timing ' + label, '$T_c \; [s]$', '$\log(cost)$')
+        simplePlot(contactTime, cost, None, None, 'timing', 'purple', 'Cost and timing', '$T_c \; [s]$', '$\ln(cost)$')
+        # maps the cost in the contact time space
+        mapping = np.argsort(contactTime)
+        minPos, minCost = getLowerBound(cost[mapping])
+        # simplePlot(contactTime[mapping][minPos], minCost, None, None, 'timing', 'purple', 'Cost and timing', '$T_c \; [s]$', '$\ln(cost)$', points=False, alpha = 1)
+        plt.gca().legend(['Data points'])
+        # plt.gca().fill_between(contactTime[mapping][minPos], minCost, max(cost), color = 'purple', alpha = 0.2)
+        simplePlot([], [], image_folder, extension, 'timing', 'purple', 'Cost and timing', '$T_c \; [s]$', '$\ln(cost)$', points=False, alpha=1)
+        # adding the filtering
+        # cost_f = savgol_filter(cost[mapping], 101, 1)
+        # simplePlot(contactTime[mapping], cost_f, image_folder, extension, 'timing', 'red', 'Cost and timing ' + label, '$T_c \; [s]$', '$\ln(cost)$', points=False)
+        #plt.gca().plot(contactTime[mapping], cost_f, color = 'red')
     except:
         print('Contact time not found')
 
-    simplePlot(cost, None, image_folder, extension, 'cost_evo', 'blue', 'Cost evolution during the optimization', 'Number of Iteration', '$\log(cost)$',)
-    simplePlot(error, None, image_folder, extension, 'error_evo', 'red', 'Error evolution during the optimization', 'Number of Iteration', '$\log(error)$')
+    # cost plot
+    simplePlot(cost, None, None, None, 'cost_evo', 'blue',)
+    minPos, minCost = getLowerBound(cost)
+    simplePlot(minPos, minCost, None, None, 'cost_evo', 'blue', 'Cost evolution during the optimization', 'Number of Iteration', '$\ln(cost)$', points=False, alpha = 1)
+    plt.gca().legend(['Data points', 'Lower bound'])
+    plt.gca().fill_between(minPos, minCost, max(cost), color = 'blue', alpha = 0.2)
+    simplePlot(minPos, minCost, image_folder, extension, 'cost_evo', 'blue', 'Cost evolution during the optimization', 'Number of Iteration', '$\ln(cost)$', points=False, alpha = 0.7)
+
+    # error plot
+    simplePlot(error, None, image_folder, extension, 'error_evo', 'red', 'Error evolution during the optimization', 'Number of Iteration', '$\ln(error)$')
 
     try:
         # is not monodimensional
@@ -302,15 +376,18 @@ def plotPower(archive,  index, image_folder, extension, figTitle = 'power_plot',
     time = np.arange(start=0, stop=dt*N, step=dt)
     for i, torque in enumerate(archive['us'][index]):
         pm[i] = np.sum(torque * archive['xs'][index][i][-archive['us'][index].shape[1]:])
-    simplePlot(time, pm, image_folder, extension, figTitle, 'blue', plotTitle, xlabel, ylabel, points=False)
+    # filter test
+    pm_filter = savgol_filter(pm, 51, 5)
+    simplePlot(time, pm_filter, image_folder, extension, figTitle, 'blue', plotTitle, xlabel, ylabel, points=False)
+    # simplePlot(time, pm, image_folder, extension, figTitle, 'blue', plotTitle, xlabel, ylabel, points=False)
     simplePlot(time, archive['pf_cost'][index], None, None, figTitle, 'magenta', plotTitle, xlabel, ylabel, points=False)
     simplePlot(time, archive['pt_cost'][index], None, None, figTitle, 'red', plotTitle, xlabel, ylabel, points=False)
-    simplePlot(time, pm + archive['pf_cost'][index] + archive['pt_cost'][index], image_folder, extension, figTitle, 'green', plotTitle, xlabel, ylabel, points=False)
-    plt.legend(['$P_m$', '$P_f$', '$P_t$', '$P_{el}$'])
+    plt.gca().legend(['$P_m$', '$P_f$', '$P_t$', '$P_{el}$'], loc='best')
+    simplePlot(time, pm_filter + archive['pf_cost'][index] + archive['pt_cost'][index], image_folder, extension, figTitle, 'green', plotTitle, xlabel, ylabel, points=False)
     if not quiet:
         plt.show()
 
-def plotTrajectories(archive, frames = ['tip'], selectedIndexes = None, image_folder = None, extension = 'pdf', quiet = False):
+def plotTrajectories(archive, frames = ['tip'], selectedIndexes = None, image_folder = None, extension = EXTENSION, quiet = False):
 
     plt.figure('trajectories_superposition')
     ax = plt.axes()
@@ -336,7 +413,9 @@ def plotTrajectories(archive, frames = ['tip'], selectedIndexes = None, image_fo
                         initial_positions = np.append(initial_positions, np.array([x[1], z[1]]))
                         final_positions = np.append(final_positions, np.array([x[-1], z[-1]]))
     plt.colorbar(matplotlib.cm.ScalarMappable(norm=matplotlib.colors.Normalize(c_min, c_max, clip=False), cmap='BuPu_r'))
-    plt.show()
+
+    if not quiet:
+        plt.show()
 
 def energy_stats(archive, index, robot_model, dt = 1e-3):
     '''
@@ -406,6 +485,77 @@ def plotSolution(archive, index, image_folder, extension, figTitle = 'solution',
         plt.legend()
         plt.xlabel(xlabel)
     plt.grid(True)
+    if image_folder is not None:
+        if not os.path.exists(image_folder):
+            os.makedirs(image_folder)
+        plt.savefig(image_folder + figTitle + '.' + extension, format = extension)
+    if not quiet:
+        plt.show()
+
+def plotSolutionMonoped(archive, index, image_folder, extension, figTitle = 'solution', plotTitle = 'Solution', dt = 1e-2, xlabel = 'time [s]', ylabel = '', quiet = True):
+    '''
+    Plots the ddp solution, xs, us for the monoped actuated and underactuated part
+    '''
+    xs, us = archive['xs'][index], archive['us'][index]
+
+    plt.figure(figTitle )#, figsize=(6,8))
+    plt.gcf().tight_layout()
+    plt.title('Solution trajectory')
+
+    if xs is None:
+        usPlotIdx = 111
+    elif us is None:
+        xsPlotIdx = 111
+    else:
+        stateUnderActPlot = plt.subplot(221)
+        controlPlot = plt.subplot(212)
+        stateActPlot = plt.subplot(222)
+    N = len(us[:,0])
+    time = np.arange(start=0, stop=dt*N + dt, step=dt)
+    # sets colors, state + control
+    Colors = ['#9C27B0', '#E91E63', '#2196F3'] * 2 + ['#009688', '#EE6002']
+
+    # Plotting the state trajectories
+    if xs is not None:
+        nx = len(xs[0])
+        # set labels
+        posLabels = ['$x_0$', '$x_1$', '$x_2$']
+        velLabels = ['$\dot{x}_0$', '$\dot{x}_1$', '$\dot{x}_2$']
+        varLabels = posLabels + velLabels
+        # underactuated state
+        [stateUnderActPlot.plot(time, xs[:,i], color=Colors[i], label=varLabels[i]) for i in [0]]
+        stateUnderActPlot.legend(loc='upper left')
+        stateUnderActPlot.grid(True)
+        stateUnderActPlot.set_title('Underactuated state')
+        stateUnderActPlot.set_xlabel(xlabel)
+        stateUnderActPlot.set_ylabel('[m]')
+        stateUnderActPlotVel = stateUnderActPlot.twinx()
+        [stateUnderActPlotVel.plot(time, xs[:,i], "--", color=Colors[i], alpha=0.6,  label=varLabels[i]) for i in [3]]
+        stateUnderActPlotVel.set_ylabel('[m/s]')
+        stateUnderActPlotVel.legend(loc='lower left')
+        # actuated state
+        [stateActPlot.plot(time, xs[:,i], color=Colors[i], label=varLabels[i]) for i in [1, 2]]
+        stateActPlot.legend(loc='upper left')
+        stateActPlot.grid(True)
+        stateActPlot.set_title('Actuated state')
+        stateActPlot.set_ylabel('[rad]')
+        stateActPlotVel = stateActPlot.twinx()
+        stateActPlot.set_xlabel(xlabel)
+        [stateActPlotVel.plot(time, xs[:,i], "--", color=Colors[i], alpha=0.6, label=varLabels[i]) for i in [4, 5]]
+        stateActPlotVel.set_ylabel('[rad/s]')
+        stateActPlotVel.legend(loc='lower left')
+
+    if us is not None:
+        # control
+        nu = len(us[0])
+        [controlPlot.plot(time[:N], us[:,i], color=Colors[-1-i], label="$u_{" + str(i) + "}$") for i in range(nu)]
+        controlPlot.legend(loc='best')
+        controlPlot.grid(True)
+        controlPlot.set_xlabel(xlabel)
+        controlPlot.set_title('Control torques')
+        controlPlot.set_ylabel('[Nm]')
+
+    plt.gcf().tight_layout()
     if image_folder is not None:
         if not os.path.exists(image_folder):
             os.makedirs(image_folder)
